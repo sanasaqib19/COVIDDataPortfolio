@@ -1,0 +1,228 @@
+--Check all tables are available
+
+Select *
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Order By Location, Date
+
+Select *
+From [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase
+Order By Location, Date
+
+
+--Selecting specific data for use
+
+Select location, date, population, total_cases_per_million, new_cases, total_deaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Order By Location, Date
+
+-- Cases Vs Deaths reported
+
+Select location, date, new_cases_per_million, total_deaths_per_million, (total_deaths_per_million/total_cases_per_million*100) AS DeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Order By Location, Date
+
+--comparing DeathPercentage of Pakistan Vs United States
+
+Select location, date, new_cases_per_million, total_deaths_per_million, (total_deaths_per_million/total_cases_per_million*100) AS DeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where location like '%pak%'
+Order By Location, Date
+
+Select location, date, new_cases_per_million, total_deaths_per_million, (total_deaths_per_million/total_cases_per_million*100) AS DeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where location like '%states%'
+Order By Location, Date
+
+--Looking at cases precentage pak vs united states
+
+Select location, date, population, total_cases_per_million, ((total_cases_per_million*(population/1000000))/population)*100 AS CasesPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where location like '%pak%'
+Order By Location, Date
+
+Select location, date, population, total_cases_per_million, ((total_cases_per_million*(population/1000000))/population)*100 AS CasesPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where location like '%states%'
+Order By Location, Date
+
+-- Checking if there is reptition of data (Continents mentioned in location column)
+
+Select continent, location, population, total_deaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is NULL
+order by location
+
+
+-- Countries with highest infection rate
+
+Select location, population, MAX(new_cases) as TotalCases, (MAX(new_cases)/population)*100 AS InfectionPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not NULL
+Group by location, population
+Order by InfectionPercentage DESC
+
+
+-- Countries with highest death rate
+
+Select location, population, MAX(cast(total_deaths as int)) as TotalDeaths, (MAX(cast(total_deaths as int))/population)*100 AS DeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not NULL
+Group by location, population
+Order by DeathPercentage DESC
+
+--why is England showing up NULL data??
+
+Select *
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where location like '%kingdom%'
+Order By Location, Date
+
+-- Above query shows that the data entered for England is under the location "United Kingdom"
+
+--how many hospitalised patients were admitted in the ICU
+
+Select location, date, cast(hosp_patients as int) as HospitalPatients, cast(icu_patients as int) as IcuPatients
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not NULL And hosp_patients is not NULL AND icu_patients is not NULL
+Order by location, date, icu_patients Desc
+
+
+--Hospitalizations compared to Cases
+
+
+Select location, MAX(new_cases) as TotalCases, max(cast(hosp_patients as int)) as Hospitalizations
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not NULL
+Group by location
+Order by Hospitalizations DESC
+
+
+
+--Breaking deaths down by Continent
+
+Select continent, MAX(cast(total_deaths as int)) as TotalDeaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not NULL
+Group by continent
+Order by TotalDeaths Desc
+
+-- Total new cases by date worldwide
+
+Select date, sum(new_cases) as NewCases
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+where continent is not null
+Group by date
+Order by date 
+
+--Total new deaths by date worldwide
+
+Select date, sum(cast(new_deaths as int)) as NewDeaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+where continent is not null
+Group by date
+Order by date 
+
+--Global daily deaths as percentage of daily cases
+
+Select date, sum(new_cases) as NewCases, sum(cast(new_deaths as int)) as NewDeaths, sum(cast(new_deaths as int))/sum(new_cases)*100 as GlobalDeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null 
+Group by date
+Order by date 
+
+Select sum(new_cases) as NewCases, sum(cast(new_deaths as int)) as NewDeaths, sum(cast(new_deaths as int))/sum(new_cases)*100 as GlobalDeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null
+
+
+-- Joining Vaccination table to Deaths table
+
+Select d.continent, d.location, d.date, v.new_vaccinations, sum(cast(v.new_vaccinations as bigint)) OVER (partition by d.location order by d.location, d.date) as TotalVaccineRollOut
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.location = v.location
+and d.date = v.date
+Where d.continent is not null
+Order by d.location, d.date
+
+
+-- Cases and deaths compared to Vaccine rollout
+
+Select d.continent, d.location, d.date, sum(d.new_cases) OVER (partition by d.location order by d.location, d.date) as TotalCases,
+sum(cast(d.new_deaths as bigint)) OVER (partition by d.location order by d.location, d.date) as Totaldeaths
+,v.new_vaccinations, sum(cast(v.new_vaccinations as bigint)) OVER (partition by d.location order by d.location, d.date) as TotalVaccinations
+
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.location = v.location
+and d.date = v.date
+Where d.continent is not null
+Order by d.location, d.date
+
+--Did hospitalizations go drastically down with vaccine rollout?
+
+Select d.location, d.date, d.population, v.new_vaccinations, d.hosp_patients
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.location = v.location
+and d.date = v.date
+Where d.continent is not null
+Order by d.location, d.date
+
+--total people vaccinated percentage of population
+
+Select d.location, d.population, MAX(CAST(v.people_vaccinated AS bigint)) AS TotalPeopleVaccinated
+, (MAX(cast(v.people_vaccinated as bigint))/d.population*100) as PopulationPercentageVacc
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+On d.location = v.location
+Where d.continent is not  null
+Group by d.location, d.population 
+Order by d.location
+
+
+--Using CTE
+
+With Pop_Vacc (Continent, Location, Date, Population, NewVaccines, TotalVaccineRollout)
+
+as
+
+(
+Select d.continent, d.location, d.date, d.population, v.new_vaccinations, sum(cast(v.new_vaccinations as bigint)) OVER (partition by d.location order by d.location, d.date) as TotalVaccineRollOut
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.location = v.location
+and d.date = v.date
+Where d.continent is not null
+)
+
+Select *, TotalVaccineRollout/Population*100 as PercentagePopVaccinated
+From Pop_Vacc
+Order by Location, Date
+
+
+-- Temp Table
+
+Drop table if exists #PercentageVaccinated
+
+Create Table #PercentageVaccinated
+(Continent nvarchar(255),
+Location nvarchar(255),
+Date datetime,
+Population numeric,
+NewVaccines numeric,
+TotalVaccineRollOut numeric)
+
+insert into #PercentageVaccinated
+
+Select d.continent, d.location, d.date, d.population, v.new_vaccinations, sum(cast(v.new_vaccinations as bigint)) OVER (partition by d.location order by d.location, d.date) as TotalVaccineRollOut
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.location = v.location
+and d.date = v.date
+Where d.continent is not null
+
+Select *, TotalVaccineRollout/Population*100 as PercentagePopVaccinated
+From #PercentageVaccinated
+Order by Location, Date
+
