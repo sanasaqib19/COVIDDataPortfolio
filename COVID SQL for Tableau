@@ -1,0 +1,68 @@
+--	Queries for COVID Viz 1
+
+
+--1 Global Numbers 2020-21
+ 
+Select location, population, sum(cast(new_deaths as int)) as TotalDeaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null
+group by location, population
+Order by TotalDeaths
+
+--CTE to calculate Global Death %
+
+
+With DeathPercentage (Location, Population, Deaths)
+
+as
+
+(Select location, population, sum(cast(new_deaths as int)) as TotalDeaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null and date < '2022-01-01'
+group by location, population
+)
+
+Select sum(Deaths) as Deaths, sum(Population) as Population, sum(Deaths)/sum(Population) *100 as GlobalDeathPercentage
+From DeathPercentage
+
+
+
+--2 Death Count by Continent 2020-21
+
+Select continent, sum(cast(new_deaths as int)) as TotalDeaths
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null and date < '2022-01-01'
+Group by continent
+Order by TotalDeaths DESC
+
+
+--3 Death Percentage by Country 2020-21
+
+Select location, population, sum(cast(new_deaths as int)) as TotalDeaths, sum(cast(new_deaths as int))/population * 100 as DeathPercentage
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null and date < '2022-01-01'
+Group by location, population
+Order by DeathPercentage
+
+
+--4 Infection vs Death rate over time 2020-21
+
+Select date, sum(population), sum(cast(new_deaths as bigint)) as Deaths, sum(new_cases) as Cases
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase
+Where continent is not null and date < '2022-01-01'
+Group by date
+Order by date DESC
+
+--5 Vaccinations vs Death trend 2020-21
+
+
+Select d.date, sum(d.population) as TotalPopulation, sum(cast(d.new_deaths as bigint)) as Totaldeaths
+, sum(cast(v.people_fully_vaccinated as bigint)) as TotalVaccinations , sum(cast(d.new_deaths as bigint))/sum(d.population)*100 as DeathPercentage
+, sum(cast(v.people_fully_vaccinated as bigint))/sum(d.population)*100 as VaccinationPercentage
+
+From [Portfolio Project COVID]..CovidDeaths$_xlnm#_FilterDatabase as d
+Join [Portfolio Project COVID]..CovidVaccine$_xlnm#_FilterDatabase as v
+on d.population = v.population and d.date = v.date
+Where d.continent is not null and d.date < '2022-01-01'
+Group by d.date
+Order by d.date Desc
